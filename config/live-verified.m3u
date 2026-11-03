@@ -1,0 +1,17 @@
+#EXTM3U x-tvg-url=""
+#EXTINF:-1 group-title="央视",CCTV+ 1（新闻）
+https://cd-live-stream.news.cctvplus.com/live/smil:CHANNEL1.smil/playlist.m3u8
+#EXTINF:-1 group-title="央视",CCTV+ 2（新闻）
+https://cd-live-stream.news.cctvplus.com/live/smil:CHANNEL2.smil/playlist.m3u8
+#EXTINF:-1 group-title="青岛台",青岛电视台 QTV-1（新闻综合）
+http://video10.qtv.com.cn/drm/qtv1at/manifest.m3u8
+#EXTINF:-1 group-title="青岛台",青岛电视台 QTV-2（生活服务）
+http://video10.qtv.com.cn/drm/qtv2at/manifest.m3u8
+#EXTINF:-1 group-title="青岛台",青岛电视台 QTV-3（财经资讯）
+http://video10.qtv.com.cn/drm/qtv3at/manifest.m3u8
+#EXTINF:-1 group-title="青岛台",青岛电视台 QTV-4（影视频道）
+http://video10.qtv.com.cn/drm/qtv4at/manifest.m3u8
+#EXTINF:-1 group-title="青岛台",青岛电视台 QTV-5（综艺频道）
+http://video10.qtv.com.cn/drm/qtv5at/manifest.m3u8
+#EXTINF:-1 group-title="青岛台",青岛电视台 QTV-6（休闲旅游）
+http://video10.qtv.com.cn/drm/qtv6at/manifest.m3u8

@@ -1,0 +1,24 @@
+{
+  "spider": "",
+  "wallpaper": "",
+  "sites": [],
+  "lives": [
+    {
+      "name": "央视·卫视·地方台（公开直播源）",
+      "type": 0,
+      "url": "https://iptv-org.github.io/iptv/countries/cn.m3u",
+      "epg": "https://epg.112114.xyz/pp.xml",
+      "logo": ""
+    },
+    {
+      "name": "精选官方源（已验证）",
+      "type": 0,
+      "url": "https://raw.githubusercontent.com/xinyonghuu/AIBox/main/config/live-verified.m3u",
+      "epg": "https://epg.112114.xyz/pp.xml",
+      "logo": ""
+    }
+  ],
+  "parses": [],
+  "flags": ["youku", "qq", "iqiyi", "qiyi", "letv", "sohu", "tudou", "pptv", "mgtv", "wasu"],
+  "ads": []
+}
