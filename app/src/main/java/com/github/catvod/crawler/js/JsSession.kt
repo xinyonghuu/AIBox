@@ -1,7 +1,7 @@
 package com.github.catvod.crawler.js
 
-import com.github.avbox.osc.net.HttpClients
-import com.github.avbox.osc.util.AppLog
+import com.github.aibox.osc.net.HttpClients
+import com.github.aibox.osc.util.AppLog
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean

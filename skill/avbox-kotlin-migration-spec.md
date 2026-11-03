@@ -127,7 +127,7 @@ Gson 用 `Unsafe` 直接分配实例、**不走构造器**，所以“没有无�
 
 仅 M2/M4 的“建 Repository 接口 + 消费方改注入点 + 实现藏到接口后”。其余（上帝类拆分、包改名、线程模型变更、DI 引入）一律单独立项。
 
-Repository 约定（D2/D7/D10/D11）：接口与 Room 域/内容域实现统一落 `com.github.avbox.osc.data`（`sourcedata/` 是否保留为实现子包在 M5 定）；输出二分——一次性查询 `suspend fun`、持续观察 `Flow`；构造参数只接窄接口（DAO 接口/网络 API 接口），装配只走 `AppGraph`（Kotlin `object`），**实现内禁止直取 `AppDataManager.get()`/`ApiConfig.get()`**（项目无 Mockito/Robolectric，直取静态入口 = 无法构造替身 = 单测验收落不了地）。
+Repository 约定（D2/D7/D10/D11）：接口与 Room 域/内容域实现统一落 `com.github.aibox.osc.data`（`sourcedata/` 是否保留为实现子包在 M5 定）；输出二分——一次性查询 `suspend fun`、持续观察 `Flow`；构造参数只接窄接口（DAO 接口/网络 API 接口），装配只走 `AppGraph`（Kotlin `object`），**实现内禁止直取 `AppDataManager.get()`/`ApiConfig.get()`**（项目无 Mockito/Robolectric，直取静态入口 = 无法构造替身 = 单测验收落不了地）。
 
 # 7. 卡口
 
@@ -375,7 +375,7 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 2. **`String.equalsIgnoreCase` 在 Kotlin 不存在** ⇒ `equals(x, ignoreCase = true)`。`LocalIPAddress` 2 处、`RemoteTVBox` 4 处、`TxtSubscribe` 1 处、`OkProxySelector` 1 处。
 3. **`HashMap.keySet()` 在 Kotlin 侧不可用**：`java.util.HashMap` 被映射成 Kotlin 的 `MutableMap`，只暴露 `keys` 属性 ⇒ 写 `checked.keys`。报错形态很迷惑（同时报 `Unresolved reference 'keySet'` 与 `Method 'iterator()' is ambiguous`，并列出 `Map.iterator()` 等一堆候选）。
 4. **Kotlin 没有 `Int + String`**（`None of the following candidates is applicable`，候选只列 `plus(Byte/Short/Int/Long/Float/Double)`）⇒ 必须 `x.toString() + "…"`。`LocalIPAddress.intToIp`、`TrackMemory.videoFingerprint`、`FileUtils.formatCacheSize`（`Math.max(1L, …).toString() + "KB"`）。
-5. **`VideoView<P>.setPlayerFactory(PlayerFactory<P>)` 的泛型捕获**：`VideoView<*>` 的捕获类型喂不进 `PlayerFactory<CapturedType(*)`> ⇒ 只能 `@Suppress("UNCHECKED_CAST") (videoView as VideoView<ExoPlayer>).setPlayerFactory(playerFactory)`。**注意是 app 侧的 `com.github.avbox.osc.player.ExoPlayer`**（`ExoMediaPlayerFactory extends PlayerFactory<ExoPlayer>`），不是 doikki 的 `xyz.doikki.videoplayer.exo.ExoMediaPlayer` —— 用错会报 `actual type is 'ExoMediaPlayerFactory!', but 'PlayerFactory<ExoMediaPlayer!>!' was expected`。参数类型仍保持 `VideoView<*>?`（Java 调用方传的是 raw `PlayerKernelView extends VideoView`，Kotlin 视作 `VideoView<*>`）。
+5. **`VideoView<P>.setPlayerFactory(PlayerFactory<P>)` 的泛型捕获**：`VideoView<*>` 的捕获类型喂不进 `PlayerFactory<CapturedType(*)`> ⇒ 只能 `@Suppress("UNCHECKED_CAST") (videoView as VideoView<ExoPlayer>).setPlayerFactory(playerFactory)`。**注意是 app 侧的 `com.github.aibox.osc.player.ExoPlayer`**（`ExoMediaPlayerFactory extends PlayerFactory<ExoPlayer>`），不是 doikki 的 `xyz.doikki.videoplayer.exo.ExoMediaPlayer` —— 用错会报 `actual type is 'ExoMediaPlayerFactory!', but 'PlayerFactory<ExoMediaPlayer!>!' was expected`。参数类型仍保持 `VideoView<*>?`（Java 调用方传的是 raw `PlayerKernelView extends VideoView`，Kotlin 视作 `VideoView<*>`）。
 6. **⚠️ `KV.get(key, defaultValue)` 不能带 `T : Any` 上界（本批次唯一阻断级回归的根因）**：`fun <T : Any> get(key, defaultValue: T?): T` 的 `as T` 会被编译器插入 `Intrinsics.checkNotNull` ⇒ `KV.get(key, null)`（Java 原文 `RemoteTVBox.getAvalible()` 就这么写）从"返回 null"变成**抛 NPE**，打断 `getExistPlayerTypes()`→`getPlayersExistInfo()`→`getAvalible()` 这条链上的"单击播放器按钮 / 打开播放器参数面板 / 打开投屏面板 / 投屏播放"四条常用路径。**正解**：去掉上界写 `fun <T> get(key: String, defaultValue: T?): T` —— 上界变 `Any?` 后 unchecked cast 不再插空检查，非空默认值的调用点仍推断出非空 `T`（既有 Kotlin 调用点零改动），JVM 描述符 `<T:Ljava/lang/Object;>(Ljava/lang/String;TT;)TT;` 与 Java 逐字相同。**判据**：这类"返回非空但要能返回 null"的桥接重载，一律 `javap -p -c` 看 `getInternal` 之后有没有 `checkNotNull`。
 7. **`AES.CBC/ECB` 诚实地声明 `String?` 会传导到 `ApiConfig.FindResult`**：Java 里它返回平台 `String`、解密失败时 `json = null` 并 `return null`。Kotlin 落成 `FindResult(...): String?`（内部用局部 `out`），调用点 `ConfigLoader.kt` 补 `!!` —— 因为下游 `ConfigParser.clanContentFix`/`fixContentPath` 的 `content` 是非空形参，Java 在传 null 时也走 `checkNotNullParameter` NPE → 外层 `catch (th: Throwable)` → `error`，`!!` 复刻的就是这条路径。
 8. **`String` 的 `trim`/`split`/字符集在 45 个文件里逐处核对是必需动作**（本批次结果：`.trim()` 0 残留、`replaceAll(` 0、`charAt(` 0、`toLowerCase/UpperCase(` 0、`equalsIgnoreCase` 0、`new String(`/`.getBytes()` 0 无 charset、`TextUtils.isEmpty` 计数逐文件与 Java 完全一致）。Java 无 limit 的 `split(regex)` 丢尾部空串 ⇒ `RegexUtils.getPattern(p).split(s)`；Java `split(x, -1)` ⇒ Kotlin `split("字面量")`（Kotlin limit=0 保留尾部空串）。**同一文件里两种方向会并存**（`M3u8` 11 处里 9 处走 `RegexUtils`、2 处走 `split("\n")`），必须逐处判。
@@ -472,7 +472,7 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 
 # 7.13 M7a 实测登记（2026-10-05，播放栈自研替换：M7-0 + 新内核适配层 `osc.player.engine`）
 
-**结论**：M7-0 删 `player/build.gradle.kts` 的 `api(libs.dkplayer.ui)`（死依赖，全库源码零 `xyz.doikki.videocontroller` 类引用；toml 项留 M10 删）；M7a 新建 **`com.github.avbox.osc.player.engine`** 包 9 个 Kotlin 文件 = 移植 4 件（`OkHttpDataSource`/`HlsErrorHandlingPolicy`/`MediaSources`/共享缓存委派 `PlayerCache`）+ 装配 2 件（`EngineRenderersFactory`/`PlayerEngine`）+ 策略 3 件（`SourcePolicy`/`CodecPreferences`/`NetworkSpeed`），另 4 个单测文件。`:app:assembleDebug` + `:app:assembleRelease` 绿（**该次 release 为许可前套跑，此后一律按 §2 构建口径：未经用户许可不跑**）；`:app:testDebugUnitTest` **569 用例 / 0 失败 / 0 错误 / 0 跳过（74 suite）**（536 基线 + 33 新增）。**M7a 不接 UI/不接调用方（双栈并存，doikki 仍是回退面）**，新旧共享状态收口 2 处：旧 `ExoPlayer.setPreferSoftwareDecode/isPreferSoftwareDecode` 改读写 `CodecPreferences`（选择器同源）、app 侧 `PlayerCache` 反向委派旧 `ExoMediaSourceHelper`（模块依赖方向 app→player）。独立子代理逐类对照复核（18 条结论）：**1 阻断 + 1 高（同根因）+ 6 中低全部已修**，2 条登记（私改公为单测、`usesExoSelector` 日志恒真）。
+**结论**：M7-0 删 `player/build.gradle.kts` 的 `api(libs.dkplayer.ui)`（死依赖，全库源码零 `xyz.doikki.videocontroller` 类引用；toml 项留 M10 删）；M7a 新建 **`com.github.aibox.osc.player.engine`** 包 9 个 Kotlin 文件 = 移植 4 件（`OkHttpDataSource`/`HlsErrorHandlingPolicy`/`MediaSources`/共享缓存委派 `PlayerCache`）+ 装配 2 件（`EngineRenderersFactory`/`PlayerEngine`）+ 策略 3 件（`SourcePolicy`/`CodecPreferences`/`NetworkSpeed`），另 4 个单测文件。`:app:assembleDebug` + `:app:assembleRelease` 绿（**该次 release 为许可前套跑，此后一律按 §2 构建口径：未经用户许可不跑**）；`:app:testDebugUnitTest` **569 用例 / 0 失败 / 0 错误 / 0 跳过（74 suite）**（536 基线 + 33 新增）。**M7a 不接 UI/不接调用方（双栈并存，doikki 仍是回退面）**，新旧共享状态收口 2 处：旧 `ExoPlayer.setPreferSoftwareDecode/isPreferSoftwareDecode` 改读写 `CodecPreferences`（选择器同源）、app 侧 `PlayerCache` 反向委派旧 `ExoMediaSourceHelper`（模块依赖方向 app→player）。独立子代理逐类对照复核（18 条结论）：**1 阻断 + 1 高（同根因）+ 6 中低全部已修**，2 条登记（私改公为单测、`usesExoSelector` 日志恒真）。
 
 **本切片现场核实出的规则（M7b–M7f 照查）**：
 
@@ -482,7 +482,7 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 4. **`C.LENGTH_UNSET` 是 Int**：Kotlin 里与 `Long` 比较/赋值要显式 `.toLong()`（`dataSpec.length != C.LENGTH_UNSET.toLong()`），Java 的隐式提升不再成立。
 5. **`InvocationHandler.invoke` 的 `args` 是 `Array<out Any>?`**（不可写）：要改元素需 `@Suppress("UNCHECKED_CAST") (args as Array<Any>).clone()`；`method.invoke(renderer)` 与 `method.invoke(renderer, *invokeArgs)` 必须分两支（Kotlin 不能把 null 数组展开成"无参调用"）。
 6. **JVM 单测（`isReturnDefaultValues`）里 `Uri`/`Bundle`/`TextUtils` 全是桩**：依赖 `Uri.parse` 的路径判定（`/live.php`、`/live/`）、`TextUtils.isEmpty` 的空键过滤、Bundle 序列化（`buildMediaItem`/`headersFrom`）**都不可 JVM 测**；`PlaybackException(message, cause, code, Bundle())`（4 参）可构造（3 参构造走 `Bundle.EMPTY` 桩 null 会被内部 `checkNotNull` 拒绝）；`LoadErrorInfo` 链上要 `DataSpec`/`Uri` ⇒ HLS 策略的重试延迟/fallback 分支同样不可 JVM 测（只测 `isChunkError` 与重试次数）。
-7. **跨模块依赖方向**：`player` 模块不能引用 app 的类（`com.github.avbox.osc.*`）。共享缓存的实现只能留在 `ExoMediaSourceHelper`，app 侧 `PlayerCache` 做反向委派；**M10 拆除 player 模块时把实现整体搬进 `PlayerCache`（唯一改动点）**。
+7. **跨模块依赖方向**：`player` 模块不能引用 app 的类（`com.github.aibox.osc.*`）。共享缓存的实现只能留在 `ExoMediaSourceHelper`，app 侧 `PlayerCache` 做反向委派；**M10 拆除 player 模块时把实现整体搬进 `PlayerCache`（唯一改动点）**。
 8. **`setDisplay` 的自动补发是承重行为**：旧 `ExoPlayer.setDisplay` 在 `super.setDisplay` 后按 `holder.getSurfaceFrame()` 补发 `MSG_SET_VIDEO_OUTPUT_RESOLUTION`（SurfaceView 路径唯一补发点，漏发 = 效果管线黑屏）；新层必须照做，且 `reset()` 会把 `playWhenReady` 停到 false —— 复用内核起播须补 `setOptions()`（旧链路 `reset → setOptions → prepare`）。
 9. **配置默认值要对齐"旧缺键口径"而非 media3 默认**：`bufferTimes` 缺省 = `KVKeys.BUFFER_TIMES_DEFAULT`（3），不是 1（写 1 会让 M7c 漏传时缓冲缩到 1/3）。
 10. **新层遗漏项已补**：`getTcpSpeed()`（旧 `PlayerUtils.netSpeed`，OSD 网速）→ `NetworkSpeed`（TrafficStats 差值法，脱离 doikki 依赖）；`MediaSources` 构造即归一 `applicationContext`（旧单例的防泄漏语义）；client 未注入时回落 `HttpClients.itvClient()`（旧栈全局注入，避免静默走裸 client 丢 DoH/hosts/代理/SSL）。
@@ -495,7 +495,7 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 
 # 7.14 M7b 实测登记（2026-10-06，播放栈自研替换：内核桥切换 + 渲染宿主 + 状态机）
 
-**结论**：M7b 把 app 侧内核换成"桥 → `PlayerEngine`"、渲染视图换成 app 侧双模式宿主、新增新栈状态机与音频焦点组件，并做最小接线。`:app:assembleDebug` 绿；`:app:testDebugUnitTest` **603 用例 / 0 失败 / 0 错误 / 0 跳过（77 suite）**（570 基线 + 33：`RenderMeasureTest` 13 / `PlaybackStateMachineTest` 10 / `AudioFocusActionsTest` 10）；改动文件全 LF。**切换口径 = "桥保留类名与对外方法面"**：`com.github.avbox.osc.player.ExoPlayer` 由 Java 重写为 Kotlin（`extends AbstractPlayer` 直连 `PlayerEngine`，不再继承 doikki `ExoMediaPlayer`）⇒ 全部调用点（`PlayerKernelView`/`PlayContainer`/`TrackSelectorDelegate`/`VideoPlayerController`/`PlaybackRetryDelegate`/`MusicSessionDelegate`/`PictureEffects`/`PlayerCatalog`）**零签名改动**，由 `:app:assembleDebug`（Java 侧匿名类、`instanceof`/强转）与单测兜底。
+**结论**：M7b 把 app 侧内核换成"桥 → `PlayerEngine`"、渲染视图换成 app 侧双模式宿主、新增新栈状态机与音频焦点组件，并做最小接线。`:app:assembleDebug` 绿；`:app:testDebugUnitTest` **603 用例 / 0 失败 / 0 错误 / 0 跳过（77 suite）**（570 基线 + 33：`RenderMeasureTest` 13 / `PlaybackStateMachineTest` 10 / `AudioFocusActionsTest` 10）；改动文件全 LF。**切换口径 = "桥保留类名与对外方法面"**：`com.github.aibox.osc.player.ExoPlayer` 由 Java 重写为 Kotlin（`extends AbstractPlayer` 直连 `PlayerEngine`，不再继承 doikki `ExoMediaPlayer`）⇒ 全部调用点（`PlayerKernelView`/`PlayContainer`/`TrackSelectorDelegate`/`VideoPlayerController`/`PlaybackRetryDelegate`/`MusicSessionDelegate`/`PictureEffects`/`PlayerCatalog`）**零签名改动**，由 `:app:assembleDebug`（Java 侧匿名类、`instanceof`/强转）与单测兜底。
 
 **交付物（新文件 9 + 改动点 7；另 3 个单测文件）**：
 - 桥：`player/ExoPlayer.kt`（重写，删 `ExoPlayer.java`）——AbstractPlayer 全契约映射 + 回调映射 + app 扩展面 27 项 + 静态面（`ERROR_KIND_*` const / `setPreferSoftwareDecode`/`isPreferSoftwareDecode`）+ 嵌套 `OnCuesListener`（`@JvmSuppressWildcards` 保 Java 匿名实现）。
@@ -525,7 +525,7 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 
 # 7.15 M7c 实测登记（2026-10-06，播放栈自研替换：点播全链切换 9 片）
 
-**结论**：`player/` 包 36 Java → 只剩 2 个（`PreloadCoordinator`/`PreloadManagerHolder` 留 M7f）；app 内 `com.github.avbox.osc.player` **82 Kotlin / 2 Java（18091 / 657 行）**，`app/src/main/java` 由 M6b 的 **64 Java / 289 Kotlin** 降到 **30 Java / 338 Kotlin**。两阶段执行：语言迁移 8 片（逻辑零改动）→ 栈收口 1 片（`observeForever` → `flow`）。每片 `:app:assembleDebug` 绿、前 8 片 `:app:testDebugUnitTest` **603 用例 / 0 失败 / 0 错误 / 0 跳过**（与 M7b 基线持平）、收口片 **604**（净 +1）；改动文件全 LF；`tokens` 卡口抽查（「旧有新无」逐条归入已知盲区）。提交清单、复核账目与未验证面见 `skill/review/refactor-plan-20261005.md` §M7 的 M7c 交付行。
+**结论**：`player/` 包 36 Java → 只剩 2 个（`PreloadCoordinator`/`PreloadManagerHolder` 留 M7f）；app 内 `com.github.aibox.osc.player` **82 Kotlin / 2 Java（18091 / 657 行）**，`app/src/main/java` 由 M6b 的 **64 Java / 289 Kotlin** 降到 **30 Java / 338 Kotlin**。两阶段执行：语言迁移 8 片（逻辑零改动）→ 栈收口 1 片（`observeForever` → `flow`）。每片 `:app:assembleDebug` 绿、前 8 片 `:app:testDebugUnitTest` **603 用例 / 0 失败 / 0 错误 / 0 跳过**（与 M7b 基线持平）、收口片 **604**（净 +1）；改动文件全 LF；`tokens` 卡口抽查（「旧有新无」逐条归入已知盲区）。提交清单、复核账目与未验证面见 `skill/review/refactor-plan-20261005.md` §M7 的 M7c 交付行。
 
 **本切片现场核实出的规则（M7d–M7f 照查）**：
 
@@ -588,14 +588,14 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 **i18n（`.tools/i18n_gate.py`）**：`ui 层（硬闸门）= 0 处 / 0 文件` ✅；`非 ui = 35 处 / 3 文件` —— `player/engine/PlayerEngine.kt` 33（`LANG_MAP` 语言归类值 18 + `matchLanguage` 关键字与返回值 14 + `"未知"` 过滤值 1）、`sourcedata/SourceHelper.kt` 1（`"豆瓣"` 探测值）、`sourcedata/SourceResultParser.kt` 1（异常文案）。**逐条甄别：35 处全属"匹配关键字/归类值/探测值/诊断文案"，无一处是待翻译的 UI 文案** ⇒ 属**缺 `i18n: keep` 标记**（规范 §1.3 R1–R11 的数据值/日志类），来源是 **M7a 新建 `PlayerEngine.kt`（`8878235`）时未标注**。门脚本按行认标记（该行或上一行），补 34 处可恢复到历史 `ui 0 / 非 ui 0`；纯注释零风险，但会在引擎文件插入约 30 行注释，**登记为待办、未擅自执行**。
 - **承接给后续片的规则**：新建/移植**任何**"语言码 → 中文归类值"或"关键字匹配表"时，**当场打 `// i18n: keep(轨道语言匹配值)`** —— 否则每建一个引擎/解析类都会让 i18n 门回退一格。
 
-**包级环**：提取口径 = 文件所在包与 import 目标包各取"根包（`com.github.avbox` / `com.github.catvod`）之后头 3 段"，双向即成环。实测 **22 组 / 231 边 / 53 包**（231 边与旧基线数值相同，但包数 39 → 53 说明**分组口径不完全一致**）。**旧基线脚本已丢失 ⇒ 不做"是否新增"的断言**，改为重新基线；其中 5 组是 M7 拆播放栈子包的 `player.*` 家族内环（旧文档已判可接受）。**不建议清环**：22 组的较小方向导入数之和为 63，但 11 组涉及 `util` 枢纽，而旧 spec 已**实测证明挪包无效**（util 拆分实验 23 → 23 不降），只能逐类依赖反转 ⇒ 跨轮架构重构、收益（环不影响运行）与风险（动最被依赖的包）严重不匹配，计划已明确排除。
+**包级环**：提取口径 = 文件所在包与 import 目标包各取"根包（`com.github.aibox` / `com.github.catvod`）之后头 3 段"，双向即成环。实测 **22 组 / 231 边 / 53 包**（231 边与旧基线数值相同，但包数 39 → 53 说明**分组口径不完全一致**）。**旧基线脚本已丢失 ⇒ 不做"是否新增"的断言**，改为重新基线；其中 5 组是 M7 拆播放栈子包的 `player.*` 家族内环（旧文档已判可接受）。**不建议清环**：22 组的较小方向导入数之和为 63，但 11 组涉及 `util` 枢纽，而旧 spec 已**实测证明挪包无效**（util 拆分实验 23 → 23 不降），只能逐类依赖反转 ⇒ 跨轮架构重构、收益（环不影响运行）与风险（动最被依赖的包）严重不匹配，计划已明确排除。
 - **承接给后续片的规则**：**环数是架构指标、不是缺陷**；发现环先判"是否同族/util 枢纽"，**不要试图靠挪包批量消环**（本项目已证伪一次）。
 
 **UI 层零新增注释**：规则（规范 §57 / 计划 §362）针对**迁移期不该顺手加注释**。本会话为两处**功能性布局修复**在 `ui/page/` 加了 10 行解释性注释（`CollectPage.kt`：标题移出海报的首页样式对齐出处；`ConfigManagePage.kt`：空态为何原不居中）⇒ **登记为"功能性改动所加"的例外**，可随时按用户意见删除。
 
 # 7.18 M7f 实测登记（2026-10-06，2 片）
 
-**交付**：`app/src/main/java/com/github/avbox/osc/player/` 下最后两个 Java 迁 Kotlin —— `PreloadCoordinator`（325 行，`e46ca59`）与 `PreloadManagerHolder`（333 行，`035c4cc`），**纯语言迁移、逻辑零改动**。该目录实测 **0 Java / 30 Kotlin**；主包 Java 26 → 24。**`com/github/tvbox` 已全量 Kotlin（0 Java / 349 Kotlin）**，剩余 24 个 Java **全部在 `com/github/catvod`**（契约保持边界，计划明确保留）。
+**交付**：`app/src/main/java/com/github/aibox/osc/player/` 下最后两个 Java 迁 Kotlin —— `PreloadCoordinator`（325 行，`e46ca59`）与 `PreloadManagerHolder`（333 行，`035c4cc`），**纯语言迁移、逻辑零改动**。该目录实测 **0 Java / 30 Kotlin**；主包 Java 26 → 24。**`com/github/tvbox` 已全量 Kotlin（0 Java / 349 Kotlin）**，剩余 24 个 Java **全部在 `com/github/catvod`**（契约保持边界，计划明确保留）。
 
 **结构性改写早已完成（本片只需语言迁移）**：计划原写「其订阅改由 `PlaybackPreload` 收集通道 `flow`」，实测 `observeForever` 全仓清零（仅注释提及），flow 订阅已在 `PlaybackPreload.kt:42`（`vm.preloadResult.flow.collect`），两个待迁类本身 `LiveData/Observer/Disposable/Flow` 引用数均为 0。
 
@@ -714,9 +714,9 @@ fromTopBand=false|UNDECIDED -> 2 次 ← 位移未越起判阈值
 **② 的验证栈已铺好（2026-10-06,提交 `756c098`）**：按用户指示先补测试依赖,现已落地并可跑:
 - **依赖**:`gradle/libs.versions.toml` 新增 `robolectric = "4.17"`、`androidxTestExtJunit = "1.3.0"` 与 alias `robolectric` / `androidx-test-ext-junit` / `androidx-test-core` / `androidx-compose-ui-test-junit4` / `androidx-compose-ui-test-manifest`;`app/build.gradle.kts` 的 `testImplementation` 新增这 5 项(Compose 两项走 `platform(libs.androidx.compose.bom)`,解析为 **1.13.0-alpha01**)。
 - **构建开关**:`testOptions.unitTests.isIncludeAndroidResources = true`(**关键**:不开的话 Robolectric 看不到合并清单/资源)。
-- **三个非显然的坑(全部已解,勿回退)**:① 真实 `App` 在 `attachBaseContext` 里 `KV.init → MMKV.initialize → System.loadLibrary("mmkv")`,JVM 里必然 `UnsatisfiedLinkError`,测试根本进不到测试体 ⇒ 用测试源集的极简 `com.github.avbox.osc.testing.TestApplication` 顶掉;② 宿主 Activity 不能用 `ui-test-manifest` 提供的 `androidx.activity.ComponentActivity`(它不在应用运行期 dex 里,`ActivityScenario` 实例化失败)⇒ 用测试源集自己的 `ComposeTestActivity`;③ 用 `createAndroidComposeRule<T>()` 显式指定宿主。
+- **三个非显然的坑(全部已解,勿回退)**:① 真实 `App` 在 `attachBaseContext` 里 `KV.init → MMKV.initialize → System.loadLibrary("mmkv")`,JVM 里必然 `UnsatisfiedLinkError`,测试根本进不到测试体 ⇒ 用测试源集的极简 `com.github.aibox.osc.testing.TestApplication` 顶掉;② 宿主 Activity 不能用 `ui-test-manifest` 提供的 `androidx.activity.ComponentActivity`(它不在应用运行期 dex 里,`ActivityScenario` 实例化失败)⇒ 用测试源集自己的 `ComposeTestActivity`;③ 用 `createAndroidComposeRule<T>()` 显式指定宿主。
 - **能力探针 `ComposeGestureHarnessTest`(3 例)**:`performClick` 能落到 Compose 节点;低层 `down/up` 能进 `pointerInput`;以及**最关键的**——父层在 `PointerEventPass.Final` 能观察到子控件已消费(`isConsumed=true`)。第三例正是第一轮复核断言"缺失"的那个前提。
-- **当前状态**:探针暂时 `@Ignore`,唯一原因是本工程 **`applicationId`(com.github.avbox.osc) ≠ `namespace`(com.github.avbox.osc)**,导致测试源集 Activity 的名字在"清单合并"(绝对名)与"Robolectric 规范化"(相对 applicationId 的 `.ui.ComposeTestActivity`)两侧对不上,`Unable to resolve activity for Intent`。**属 AGP 9 清单接线问题,与手势逻辑无关** —— 同一份代码在 `mergeDebugUnitTestManifest` 尚未重跑的那次构建里 3 例全 PASS。解锁方向(均不需改手势代码):① 把宿主 Activity 放进主源集(或主清单声明一个调试用 Activity)使两侧名字天然一致;② 改走 `androidTest`;③ 查清 AGP 9 下该场景的清单来源。全套件 **614 用例 / 0 失败 / 3 跳过**。
+- **当前状态**:探针暂时 `@Ignore`,唯一原因是本工程 **`applicationId`(com.github.aibox.osc) ≠ `namespace`(com.github.aibox.osc)**,导致测试源集 Activity 的名字在"清单合并"(绝对名)与"Robolectric 规范化"(相对 applicationId 的 `.ui.ComposeTestActivity`)两侧对不上,`Unable to resolve activity for Intent`。**属 AGP 9 清单接线问题,与手势逻辑无关** —— 同一份代码在 `mergeDebugUnitTestManifest` 尚未重跑的那次构建里 3 例全 PASS。解锁方向(均不需改手势代码):① 把宿主 Activity 放进主源集(或主清单声明一个调试用 Activity)使两侧名字天然一致;② 改走 `androidTest`;③ 查清 AGP 9 下该场景的清单来源。全套件 **614 用例 / 0 失败 / 3 跳过**。
 
 **② 的阻塞条件（2026-10-06 实测确认）**：本仓库**不具备离线验证 Compose 指针语义的手段** —— `app/build.gradle.kts:89-90` 只有 `testOptions { unitTests.isReturnDefaultValues = true }` + `testImplementation(libs.junit)`（JUnit4）；`gradle/libs.versions.toml` 无 `robolectric`/`ui-test-*`；`app/src` 无 `androidTest` 源集。两轮独立复核对已实现的手势层结论一致（"两个阻断项都在接线层、16 例单测 0 覆盖"），而接线层语义只能由 `androidTest` 或真机证明 ⇒ 在补上验证手段前，该项的每次实现尝试都无法被判为可交付。**解锁路径**：① 引入 `androidx.compose.ui:ui-test-junit4` + `robolectric` 并补 12 条接线层用例（清单见上）；② 真机手势走查；③ 明确接受保留 View 层 `GestureDetector` 并从 objective 摘除本项。
 
@@ -764,7 +764,7 @@ fromTopBand=false|UNDECIDED -> 2 次 ← 位移未越起判阈值
    dexdump -d <jar 解出的 classes.dex> | grep -oE "Lcom/github/catvod/(net|crawler|js)/[A-Za-z0-9_$]+;\.[^ ]*"
    ```
    两个 jar 合计引用宿主 21 个成员（`Spider` 14 / `SpiderApi` 5 / `SpiderDebug` 2），**全部命中**。
-4. **真 jar 从哪来**：`adb exec-out run-as com.github.avbox.osc`（只读）从 `files/csp/<md5>.jar` 取设备上正在用的两个 jar，落盘到 `日志/spider-jars/`（`日志/` 已 gitignore）。
+4. **真 jar 从哪来**：`adb exec-out run-as com.github.aibox.osc`（只读）从 `files/csp/<md5>.jar` 取设备上正在用的两个 jar，落盘到 `日志/spider-jars/`（`日志/` 已 gitignore）。
 
 ## 设备上两个 jar 的实测形态（Tier A 面的来源）
 
@@ -775,7 +775,7 @@ fromTopBand=false|UNDECIDED -> 2 次 ← 位移未越起判阈值
 | `源码/1.jar`（4.1 MB / 1413 类） | FishGuard 加固的全功能 jar | 96 个 `com.github.catvod.spider.*`（`AList`、`Pan115/Pan123/PanWebShare*`、`Quark`、`UC`、`XunleiPan`、`TianYi`、`Cloud`、`Bili`、`Libvio`、`XPath*`…）、`spider.Init`/`InitOrigin`/`Proxy`/`ProxyOrigin`、`js.Method`、`utils.FishNative` + `assets/FishGuard-{v7,v8}.so`；**无 `spider.Danmaku`** |
 
 - **jar 对宿主的继承关系实测只有一条**：`Superclass: Lcom/github/catvod/crawler/Spider;`（三个 jar 共 179 个 spider 类全部如此），**没有任何 jar 类实现宿主接口、也没有别的宿主父类** ⇒ 全仓只有 `Spider` 必须保持非 final。
-- **`源码/1.jar` 的 Tier A 引用面是三个 jar 的交集子集**（`Spider.<init>()V`、`Spider.init(Context,String)V`、`SpiderDebug.log(String)V`、`SpiderDebug.log(Throwable)V`），无 `Lcom/github/avbox/osc/*` 反向引用 ⇒ 三 jar 独立复核一致。
+- **`源码/1.jar` 的 Tier A 引用面是三个 jar 的交集子集**（`Spider.<init>()V`、`Spider.init(Context,String)V`、`SpiderDebug.log(String)V`、`SpiderDebug.log(Throwable)V`），无 `Lcom/github/aibox/osc/*` 反向引用 ⇒ 三 jar 独立复核一致。
 - **jar 引用的 `Spider` 成员（14 项）**：`<init>()V`、`init(Context)V`、`init(Context,String)V`、`initApi(SpiderApi)V`、`safeDns()Lokhttp3/Dns;`（静态）、`homeContent(Z)String`、`homeVideoContent()String`、`categoryContent(String,String,Z,HashMap)String`、`detailContent(List)String`、`searchContent(String,Z)String`、`searchContent(String,Z,String)String`、`playerContent(String,String,List)String`、`action(String)String`、`destroy()V`。
 - **jar 引用的 `SpiderApi`（5 项）**：`getAddress(Z)String`、`getPort()String`、`log(String)V`、`multiReq(JsonArray)String`、`webParse(String,String)String`。
 - **jar 引用的 `SpiderDebug`（2 项）**：`log(String)V`、`log(Throwable)V`。
@@ -824,7 +824,7 @@ fromTopBand=false|UNDECIDED -> 2 次 ← 位移未越起判阈值
 ## Tier B 变化（D9）
 
 实测 **13 个符号**（M0 记 11）：
-- 新增 `osc.util.ActivityStack` —— Java 版 `SpiderApi` 用**内联 FQCN** `com.github.avbox.osc.util.ActivityStack.getInstance()` 调用，脚本按 `import` 生成清单时**漏掉了它**（计划附录 B 已登记此盲区）；迁 Kotlin 后变成正规 import，清单因此补齐。
+- 新增 `osc.util.ActivityStack` —— Java 版 `SpiderApi` 用**内联 FQCN** `com.github.aibox.osc.util.ActivityStack.getInstance()` 调用，脚本按 `import` 生成清单时**漏掉了它**（计划附录 B 已登记此盲区）；迁 Kotlin 后变成正规 import，清单因此补齐。
 - 新增 `osc.util.RegexUtils` —— 真新增：为保住 Java `String.split(regex)` 的"丢尾部空串"语义而引入（M6b 规则 15 的同一做法）。
 - 其余 11 个符号未变，静态调用形态由 `object` + `@JvmStatic` 保住（`javap` 实证）。
 

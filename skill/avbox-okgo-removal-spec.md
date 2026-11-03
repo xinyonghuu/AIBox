@@ -10,7 +10,7 @@
 OkGo(`com.lzy.net:okgo:3.0.4`,2018 年停更、按 okhttp3 3.x 编译)本身不提供网络能力,只提供调用形状。依赖形态:**项目在 `gradle/libs.versions.toml` 显式声明 okhttp 5.5.0(`app/build.gradle.kts:122`),okgo 传递的 okhttp 3.x 被版本仲裁压制**,okgo 实际运行在 5.5.0 之上:
 
 ```kotlin
-// app/src/main/java/com/github/avbox/osc/net/HttpClients.kt
+// app/src/main/java/com/github/aibox/osc/net/HttpClients.kt
 val okHttpClient = builder.build()
 okHttpClient.dispatcher.maxRequestsPerHost = 10
 OkGo.getInstance().setOkHttpClient(okHttpClient)
@@ -184,7 +184,7 @@ okgo 链式 `.tag()` 打点 14 处(上述 9 文件)/ `cancelTag` 消费 12 处,�
 
 ### 4.1 await 层形态(已定:见 P4)
 
-建议放 `app/src/main/java/com/github/avbox/osc/util/net/`(与既有 `OkProxySelector`/`ProxyAuthenticator` 同包),形态示意:
+建议放 `app/src/main/java/com/github/aibox/osc/util/net/`(与既有 `OkProxySelector`/`ProxyAuthenticator` 同包),形态示意:
 
 ```kotlin
 object Http {
@@ -318,7 +318,7 @@ requestScope.launch {                                   // 归属见 §4.4
 
 - 范围:新增 await 层(§4.1,位置与命名见 P4;重试口径见 P5;桥接自持见 P11)+ 纯函数决策层 + 单测;`libs.versions.toml` 显式声明 `kotlinx-coroutines-android`(§1.4);不改任何调用点。
 - 卡口:构建绿 + await 层单测绿(基线:现有 536+ 用例不回退)。
-- 实测登记:_已回填(2026-10-06)_:新增 `app/src/main/java/com/github/avbox/osc/util/net/Http.kt`(`Http`/`HttpRequest`/`HttpException`)与 `HttpPolicy.kt`(URL 拼接 / E2 判定 / E6 判定 / E10 取值);重试·状态码·取消静默经 `internal Http.executeWithRetry(request, client)` 注入 fake client 覆盖;单测新增 3 类 22 例(`HttpPolicyTest` 7 / `HttpRequestTest` 9 / `HttpTest` 6);`libs.versions.toml` 显式声明 `kotlinx-coroutines-android` = **1.10.2**(与既有解析版本一致,依赖图零变化);`.\gradlew :app:assembleDebug` + `.\gradlew :app:testDebugUnitTest` 绿,总计 **677 用例 0 失败**(含新增 22 例)。**N1 收尾审查修复(`9e66e73`)**:响应体读取从挂起点恢复线程(Main)移入 `executeWithRetry` 内层 `withContext(Dispatchers.IO)`,`HttpTest` +1 例锁定(总 678)。
+- 实测登记:_已回填(2026-10-06)_:新增 `app/src/main/java/com/github/aibox/osc/util/net/Http.kt`(`Http`/`HttpRequest`/`HttpException`)与 `HttpPolicy.kt`(URL 拼接 / E2 判定 / E6 判定 / E10 取值);重试·状态码·取消静默经 `internal Http.executeWithRetry(request, client)` 注入 fake client 覆盖;单测新增 3 类 22 例(`HttpPolicyTest` 7 / `HttpRequestTest` 9 / `HttpTest` 6);`libs.versions.toml` 显式声明 `kotlinx-coroutines-android` = **1.10.2**(与既有解析版本一致,依赖图零变化);`.\gradlew :app:assembleDebug` + `.\gradlew :app:testDebugUnitTest` 绿,总计 **677 用例 0 失败**(含新增 22 例)。**N1 收尾审查修复(`9e66e73`)**:响应体读取从挂起点恢复线程(Main)移入 `executeWithRetry` 内层 `withContext(Dispatchers.IO)`,`HttpTest` +1 例锁定(总 678)。
 
 ### N1 `sourcedata` 簇(7 文件)+ 接线 2 文件 —— detail/search 链闭环
 
@@ -440,7 +440,7 @@ requestScope.launch {                                   // 归属见 §4.4
 | P1 | 路线 | 方案"await 层 + 调用点协程化"(原方案 B 解禁);原方案 A(忠实 shim)否决 |
 | P2 | 取消机制 | **全 Job 化**,tag 通道一次性退役(§1.5/§4.4);不采用双通道过渡 |
 | P3 | JS 契约层 | **不进协程世界**:公开签名保持阻塞式 + 签名守恒;协程化只发生在方法体内部(N4) |
-| P4 | await 层命名与位置(原 D1) | `app/src/main/java/com/github/avbox/osc/util/net/Http.kt`,含 `Http`/`HttpRequest`/`HttpException`,`HttpPolicy`(纯策略)同包。理由:与 `catvod.net.OkHttp` / `okhttp3.OkHttp` / `HttpClients`(只管 client 配置)三者职责分离;`OkProxySelector`/`ProxyAuthenticator` 已在该包;同包便于 G5 单测 |
+| P4 | await 层命名与位置(原 D1) | `app/src/main/java/com/github/aibox/osc/util/net/Http.kt`,含 `Http`/`HttpRequest`/`HttpException`,`HttpPolicy`(纯策略)同包。理由:与 `catvod.net.OkHttp` / `okhttp3.OkHttp` / `HttpClients`(只管 client 配置)三者职责分离;`OkProxySelector`/`ProxyAuthenticator` 已在该包;同包便于 G5 单测 |
 | P5 | 超时重试语义(原 D2) | 保留 okgo 现状并显式化:**重试上限 3 次 ⇒ 总尝试最多 4 次**;每轮重建 Call;仅 `java.net.SocketTimeoutException` 触发(`ConnectException`/`UnknownHostException` 不重试);`getSync` 不重试(§4.1 约束 4/5) |
 | P6 | 全局 UA(原 D3) | 等价保留:await 层以**替换**语义注入全局 UA(值仍取 `"okhttp/" + OkHttp.VERSION`),显式 UA 覆盖它 —— 3 处站点请求维持**单** UA 头(§4.6) |
 | P7 | okgo 版 `HttpLoggingInterceptor`(原 D4) | 4 处全删(:87/:255/:376/:417),不引入官方 `logging-interceptor`(§4.6) |

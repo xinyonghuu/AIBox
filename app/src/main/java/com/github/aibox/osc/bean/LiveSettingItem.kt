@@ -1,0 +1,7 @@
+package com.github.aibox.osc.bean
+
+class LiveSettingItem {
+    var itemIndex: Int = 0
+    var itemName: String? = null
+    var isItemSelected: Boolean = false
+}

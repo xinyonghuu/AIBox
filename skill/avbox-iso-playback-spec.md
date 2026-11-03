@@ -38,7 +38,7 @@ MediaSources.createIsoMediaSource(uri, headers, seekMs)
 | 项 | 值 |
 |---|---|
 | media3 | **1.11.1**(`TsExtractor` 6 参构造;`DefaultSubtitleParserFactory` 官方字幕转码) |
-| App | `com.github.avbox.osc`,versionName 1.2.8,minSdk 24 / targetSdk 37,APK 只带 arm64-v8a |
+| App | `com.github.aibox.osc`,versionName 1.2.8,minSdk 24 / targetSdk 37,APK 只带 arm64-v8a |
 | 抽取模式 | `TsExtractor.MODE_MULTI_PMT` + `extractorFlags = 0` + `TimestampAdjuster(0)` + `DEFAULT_TIMESTAMP_SEARCH_BYTES × 10` |
 | 起播窗口 | ISO 会话 `ISO_SWITCH_LINE_PLAY_TIMEOUT_MS = 45s`(非 ISO 仍 20s) |
 | 吞吐守卫 | 门槛 = 平均码率(188 口径)× 115%;`measured <= 0` 一律不判 |
@@ -65,7 +65,7 @@ MediaSources.createIsoMediaSource(uri, headers, seekMs)
 
 ## 3. 模块地图(as-built)
 
-包 `app/src/main/java/com/github/avbox/osc/player/engine/iso/`:
+包 `app/src/main/java/com/github/aibox/osc/player/engine/iso/`:
 
 | 文件 | 职责 | 维护要点 |
 |---|---|---|
@@ -192,7 +192,7 @@ export MSYS_NO_PATHCONV=1
 ADB="/c/Users/Administrator/AppData/Local/Android/Sdk/platform-tools/adb.exe"
 
 "$ADB" devices
-"$ADB" -s 127.0.0.1:16384 exec-out run-as com.github.avbox.osc cat files/preload_debug.log > cur.log
+"$ADB" -s 127.0.0.1:16384 exec-out run-as com.github.aibox.osc cat files/preload_debug.log > cur.log
 "$ADB" -s 127.0.0.1:16384 logcat -d -v time > logcat.txt
 "$ADB" -s 127.0.0.1:16384 install -r app/build/outputs/apk/debug/AVBox_debug.apk
 "$ADB" -s 127.0.0.1:16384 forward tcp:15266 tcp:5266

@@ -370,7 +370,7 @@ AT::add  sr=48000  mask=0x3F(5.1)  session=257    ← 出声
 盘 C / 盘 D 改用了一条更省的办法:**直接拉设备上的目录快照**,不再整趟走 UDF。
 
 ```
-adb exec-out run-as com.github.avbox.osc cat cache/iso-volume/<总长>_<前4KB哈希>.snap
+adb exec-out run-as com.github.aibox.osc cat cache/iso-volume/<总长>_<前4KB哈希>.snap
 ```
 
 > 快照自 2026-10-20 22:40 起改存 `files/iso-volume/`(§13.6),上面是当时的路径;`cache/iso-volume` 会被首次访问清掉。另注意:BD 盘前 4KB 常为全零,`<前4KB哈希>` 恒为 `ad7facb2…`(= `sha256(4096B 0)`),真正区分盘的是 `<总长>`。

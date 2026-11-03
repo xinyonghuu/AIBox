@@ -7,9 +7,9 @@ import androidx.annotation.Keep
 
 import com.github.catvod.Proxy
 import com.github.catvod.crawler.js.rsa.RSAEncrypt
-import com.github.avbox.osc.util.AppContextHolder
-import com.github.avbox.osc.util.AppLog
-import com.github.avbox.osc.util.UserAgentPool
+import com.github.aibox.osc.util.AppContextHolder
+import com.github.aibox.osc.util.AppLog
+import com.github.aibox.osc.util.UserAgentPool
 import com.whl.quickjs.wrapper.ContextSetter
 import com.whl.quickjs.wrapper.Function
 import com.whl.quickjs.wrapper.JSArray

@@ -2,7 +2,7 @@ package com.github.catvod.crawler.js
 
 import android.util.Base64
 
-import com.github.avbox.osc.util.AppLog
+import com.github.aibox.osc.util.AppLog
 
 import java.nio.charset.Charset
 import java.security.Key

@@ -2,8 +2,8 @@ package com.github.catvod.net
 
 import androidx.collection.ArrayMap
 
-import com.github.avbox.osc.util.AppLog
-import com.github.avbox.osc.util.SSL.SSLSocketFactoryCompat
+import com.github.aibox.osc.util.AppLog
+import com.github.aibox.osc.util.SSL.SSLSocketFactoryCompat
 
 import java.net.ProxySelector
 import java.security.cert.X509Certificate

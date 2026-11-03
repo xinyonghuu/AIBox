@@ -1,6 +1,6 @@
 package com.github.catvod.crawler.js
 
-import com.github.avbox.osc.util.LanguageManager
+import com.github.aibox.osc.util.LanguageManager
 
 class Trans private constructor(private val trans: Boolean) {
 

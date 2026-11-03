@@ -152,7 +152,7 @@ PlaybackService(前台服务,托管生命周期)
 ### 3.5 媒体会话、通知与前台服务
 
 - 有音频轨就维护会话(影视/音乐一视同仁),由 `PlaybackController.updateMusicSession()` 驱动;`owner = WeakReference<PlaybackHostApi>`,通知栏动作全部打到它(`resumeFromMediaSession`/`pauseFromMediaSession`/`stopFromMediaSession`/`seekFromMediaSession`/`playPrevious`/`playNext`)。
-- 通知:channel `music_playback`、id `1001`、`MediaStyle` 三键(上一集/播放暂停/下一集)+ 占位键;动作走 `PendingIntent.getService` + `ACTION_*`(`com.github.avbox.osc.playback.*`)。
+- 通知:channel `music_playback`、id `1001`、`MediaStyle` 三键(上一集/播放暂停/下一集)+ 占位键;动作走 `PendingIntent.getService` + `ACTION_*`(`com.github.aibox.osc.playback.*`)。
 - **会话结束不 stopSelf、不释放引擎**:`stopPlaybackSession()` 只撤通知 + 放锁 + 释放 `mediaSession`。`ACTION_UPDATE` 若发现 `mediaSession == null` 会**重建**会话(服务为托管引擎而常驻,不能靠 `onCreate` 重建)。
 - **`updateSession` 的两道丢弃闸门**:`engine == null` 时丢弃(否则建出空通知 + 无人释放的 wake/wifi 锁);`!isSupported` 时丢弃(`O` 以下 / TV)。
 - **`startForeground` 被拒的两个恢复点**(2026-09-19):`foregroundDenied` 置位后,① `ACTION_UPDATE` 每次会话更新机会性重试;② `promoteIfForegroundDenied()` —— 用户动通知/媒体键那一刻(系统此刻一定允许提前台)。**不能只打日志了事**,否则一路走到"回页面点击无反应"都没痕迹。

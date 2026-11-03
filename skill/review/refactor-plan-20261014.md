@@ -777,7 +777,7 @@ source: 2026-10-14 用户指令：「写一份重构spec，把所有的主线程
 **但这个数字有测量口径污染，不能直接当"主线程阻塞 119ms"用**。时间戳交叉核对（同一轮冷启动）：
 
 ```
-12:41:26.370 ActivityManager: Start proc 41896:com.github.avbox.osc   ← 进程 fork
+12:41:26.370 ActivityManager: Start proc 41896:com.github.aibox.osc   ← 进程 fork
 12:41:27.469 TVBox-runtime: echo-boot kvInit dt=119ms                  ← kvInit 结束
 12:41:27.554 TVBox-runtime: echo-boot installStrictMode dt=0ms
 12:41:29.299 ActivityTaskManager: Displayed MainActivity +2s946ms
@@ -856,7 +856,7 @@ StrictMode.setVmPolicy(VmPolicy.Builder()
 
 **踩坑登记（比结论更值钱，避免下次重踩）**：
 
-1. **Gradle 增量/构建缓存会把改动吃掉**：本轮多次出现 `compileDebugKotlin FROM-CACHE` / `packageDebug UP-TO-DATE`，而 APK mtime 停在旧时间、设备上跑的是旧字节码，导致"改了代码但现象不变"被误判成"改动无效"。**结论：验证门禁这类全局行为时必须 `.\gradlew.bat clean` + `--no-build-cache` 全量构建，并核对 APK mtime/length 与设备侧 `ls -l /data/app/*/com.github.avbox.osc*/base.apk` 的长度一致**。核对尺寸是本轮唯一可靠的"设备真的在跑新包"证据（`md5sum`/`dumpsys package` 都不给 APK 摘要）。
+1. **Gradle 增量/构建缓存会把改动吃掉**：本轮多次出现 `compileDebugKotlin FROM-CACHE` / `packageDebug UP-TO-DATE`，而 APK mtime 停在旧时间、设备上跑的是旧字节码，导致"改了代码但现象不变"被误判成"改动无效"。**结论：验证门禁这类全局行为时必须 `.\gradlew.bat clean` + `--no-build-cache` 全量构建，并核对 APK mtime/length 与设备侧 `ls -l /data/app/*/com.github.aibox.osc*/base.apk` 的长度一致**。核对尺寸是本轮唯一可靠的"设备真的在跑新包"证据（`md5sum`/`dumpsys package` 都不给 APK 摘要）。
 2. **`dexdump -d ... | grep 'onCreate$lambda$7'` 会先命中 `D8$$SyntheticClass` 包装类**（`App$$ExternalSyntheticLambda*` 的 `invoke()` 里也有同名 invoke-static），据此判断"主线程还在 loadLibrary"会得到**错误结论**。要判断实现体，得看 `App` 类自身的方法体或用 `javap -p -c` 看 class 文件。
 3. **`Probe.step` 的注释/日志确实把改动暴露了出来**：本轮正是因为 `echo-boot quickJSLoader` **连续打印两行**，才发现 `App.kt` 里"移到 `loadQuickJs()`"的编辑**残留了旧的 `QuickJSLoader.init()` 直调**（重复代码），而这正是门禁一直被打死的真因 —— 排查过程中曾误判为"设备跑旧包/Gradle 缓存"。**教训：症状持续不变时，先读源文件本身，再怀疑工具链。**
 

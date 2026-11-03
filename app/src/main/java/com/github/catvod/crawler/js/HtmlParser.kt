@@ -2,9 +2,9 @@ package com.github.catvod.crawler.js
 
 import android.text.TextUtils
 
-import com.github.avbox.osc.util.AppLog
-import com.github.avbox.osc.util.RegexUtils
-import com.github.avbox.osc.util.StringUtils
+import com.github.aibox.osc.util.AppLog
+import com.github.aibox.osc.util.RegexUtils
+import com.github.aibox.osc.util.StringUtils
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.select.Elements
